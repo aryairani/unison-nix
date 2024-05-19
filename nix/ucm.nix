@@ -39,7 +39,8 @@
   zlib,
 }: let
   ucm = "$out/bin/ucm";
-  ui = "$out/bin/ui";
+  runtime = "$out/libexec/runtime";
+  ui = "$out/share/ui";
 in
   stdenv.mkDerivation rec {
     pname = "unison-code-manager";
@@ -87,10 +88,16 @@ in
     installPhase = ''
       install -D -m555 -T unison/unison ${ucm}
 
-      mv ui ${ui}
+      mkdir -p "$(dirname ${runtime})"
+      cp -a runtime "${runtime}"
+
+      mkdir -p "$(dirname ${ui})"
+      cp -a ui "${ui}"
 
       wrapProgram ${ucm} \
         --set-default UCM_WEB_UI ${ui} \
+        --add-flags --runtime-path \
+        --add-flags ${runtime}/bin/unison-runtime \
         --prefix PATH : ${binPath}
     '';
 
@@ -103,9 +110,9 @@ in
 
     installCheckPhase = ''
       export XDG_DATA_HOME="$TMP/.local/share"
-      $out/bin/ucm version | grep -q 'ucm version:' || \
+      ${ucm} version | grep -q 'ucm version:' || \
         { echo 1>&2 'ERROR: ucm is not the expected version or does not function properly'; exit 1; }
-      echo 'ls' | PATH="" $out/bin/ucm --codebase-create $TMP > /dev/null || \
+      echo 'ls' | PATH="" ${ucm} --codebase-create $TMP > /dev/null || \
         { echo 1>&2 'ERROR: could not run ls on a fresh ucm codebase'; exit 1; }
     '';
 
@@ -114,7 +121,7 @@ in
       homepage = "https://unisonweb.org/";
       license = with licenses; [mit bsd3];
       maintainers = [maintainers.ceedubs];
-      platforms = ["x86_64-darwin" "x86_64-linux"];
+      platforms = ["x86_64-darwin" "x86_64-linux" "aarch64-darwin"];
       mainProgram = "ucm";
     };
   }
